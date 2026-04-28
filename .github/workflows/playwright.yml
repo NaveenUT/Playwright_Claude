@@ -12,13 +12,10 @@ permissions:
   id-token: write
 
 jobs:
-  playwright-tests:
-    name: Playwright Tests (Chromium)
+  test:
+    name: Run Playwright Tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -39,7 +36,6 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       - name: Run smoke tests
-        id: smoke
         run: npm run test:smoke -- --project=chromium
         env:
           BASE_URL: ${{ vars.BASE_URL || 'https://www.henryschein.co.uk' }}
@@ -54,7 +50,7 @@ jobs:
           DOMAIN: ${{ vars.DOMAIN || 'UK Medical' }}
           HEADLESS: 'true'
 
-      - name: Upload Playwright HTML report as artifact
+      - name: Upload ZIP artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -62,17 +58,25 @@ jobs:
           path: playwright-report/
           retention-days: 30
 
-      - name: Setup GitHub Pages
-        uses: actions/configure-pages@v5
-        if: always()
-
-      - name: Upload report to GitHub Pages
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         if: always()
         with:
           path: playwright-report/
 
+  deploy-report:
+    name: Publish Report to GitHub Pages
+    needs: test
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        if: always()
