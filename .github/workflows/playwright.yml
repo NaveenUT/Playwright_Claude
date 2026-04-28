@@ -1,0 +1,53 @@
+name: Playwright Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  playwright-tests:
+    name: Playwright Tests (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Run smoke tests
+        id: smoke
+        run: npm run test:smoke -- --project=chromium --reporter=list
+        env:
+          BASE_URL: ${{ vars.BASE_URL || 'https://www.henryschein.co.uk' }}
+          DOMAIN: ${{ vars.DOMAIN || 'UK Medical' }}
+          HEADLESS: 'true'
+
+      - name: Run regression tests
+        if: success()
+        run: npm run test:regression -- --project=chromium --reporter=list
+        env:
+          BASE_URL: ${{ vars.BASE_URL || 'https://www.henryschein.co.uk' }}
+          DOMAIN: ${{ vars.DOMAIN || 'UK Medical' }}
+          HEADLESS: 'true'
+
+      - name: Upload Playwright HTML report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-${{ github.run_number }}
+          path: playwright-report/
+          retention-days: 30
