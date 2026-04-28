@@ -6,11 +6,19 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   playwright-tests:
     name: Playwright Tests (Chromium)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -46,10 +54,25 @@ jobs:
           DOMAIN: ${{ vars.DOMAIN || 'UK Medical' }}
           HEADLESS: 'true'
 
-      - name: Upload Playwright HTML report
+      - name: Upload Playwright HTML report as artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: playwright-report-${{ github.run_number }}
           path: playwright-report/
           retention-days: 30
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+        if: always()
+
+      - name: Upload report to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        if: always()
+        with:
+          path: playwright-report/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        if: always()
