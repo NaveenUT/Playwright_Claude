@@ -32,7 +32,7 @@ jobs:
 
       - name: Run smoke tests
         id: smoke
-        run: npm run test:smoke -- --project=chromium --reporter=list
+        run: npm run test:smoke -- --project=chromium
         env:
           BASE_URL: ${{ vars.BASE_URL || 'https://www.henryschein.co.uk' }}
           DOMAIN: ${{ vars.DOMAIN || 'UK Medical' }}
@@ -40,7 +40,7 @@ jobs:
 
       - name: Run regression tests
         if: success()
-        run: npm run test:regression -- --project=chromium --reporter=list
+        run: npm run test:regression -- --project=chromium
         env:
           BASE_URL: ${{ vars.BASE_URL || 'https://www.henryschein.co.uk' }}
           DOMAIN: ${{ vars.DOMAIN || 'UK Medical' }}
