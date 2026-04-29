@@ -18,6 +18,8 @@ jobs:
     timeout-minutes: 30
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    outputs:
+      summary: ${{ steps.parse.outputs.summary }}
 
     steps:
       - name: Checkout code
@@ -44,11 +46,58 @@ jobs:
 
       - name: Run regression tests
         if: success()
-        run: npm run test:regression -- --project=chromium
+        run: npm run test:regression -- --project=chromium --reporter=html,json
         env:
           BASE_URL: ${{ vars.BASE_URL || 'https://www.henryschein.co.uk' }}
           DOMAIN: ${{ vars.DOMAIN || 'UK Medical' }}
           HEADLESS: 'true'
+          PLAYWRIGHT_JSON_OUTPUT_NAME: results.json
+
+      - name: Parse test results
+        if: always()
+        id: parse
+        run: |
+          node -e "
+            const fs = require('fs');
+            if (!fs.existsSync('results.json')) {
+              const msg = 'No results file found (smoke tests may have failed before regression ran).';
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, 'summary<<ENDSUMMARY\n' + msg + '\nENDSUMMARY\n');
+              process.exit(0);
+            }
+            const r = JSON.parse(fs.readFileSync('results.json', 'utf8'));
+            const stats = r.stats || {};
+            const passed  = stats.expected  || 0;
+            const failed  = stats.unexpected || 0;
+            const flaky   = stats.flaky      || 0;
+            const skipped = stats.skipped    || 0;
+            const total   = passed + failed + flaky + skipped;
+
+            function collectTests(suites, list) {
+              for (const suite of suites || []) {
+                for (const test of suite.tests || []) {
+                  const icon = test.status === 'expected' ? 'PASS' :
+                               test.status === 'skipped'  ? 'SKIP' : 'FAIL';
+                  list.push(icon + ' | ' + test.title);
+                }
+                collectTests(suite.suites, list);
+              }
+            }
+            const tests = [];
+            collectTests(r.suites, tests);
+
+            const lines = [
+              'Total   : ' + total,
+              'Passed  : ' + passed,
+              'Failed  : ' + (failed + flaky),
+              'Skipped : ' + skipped,
+              '',
+              'Test Details:',
+              ...tests
+            ];
+
+            const summary = lines.join('\n');
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'summary<<ENDSUMMARY\n' + summary + '\nENDSUMMARY\n');
+          "
 
       - name: Upload ZIP artifact
         uses: actions/upload-artifact@v4
@@ -108,8 +157,12 @@ jobs:
             Repository  : ${{ github.repository }}
             Branch      : ${{ github.ref_name }}
             Triggered by: ${{ github.event_name }}
-            Status      : ${{ needs.test.result == 'success' && 'PASSED ' || 'FAILED ' }}
+            Status      : ${{ needs.test.result == 'success' && 'PASSED' || 'FAILED' }}
             Run Number  : #${{ github.run_number }}
+
+            Results Summary:
+            ----------------
+            ${{ needs.test.outputs.summary }}
 
             View Full HTML Report:
             https://naveenUT.github.io/Playwright_Claude/
