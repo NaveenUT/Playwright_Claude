@@ -100,7 +100,7 @@ jobs:
           password: ${{ secrets.MAIL_PASSWORD }}
           to: ${{ secrets.MAIL_TO }}
           from: Playwright CI <${{ secrets.MAIL_USERNAME }}>
-          subject: "${{ needs.test.result == 'success' && '✅ Playwright Tests Passed' || '❌ Playwright Tests Failed' }} — Run #${{ github.run_number }}"
+          subject: "${{ needs.test.result == 'success' && 'Playwright Tests Passed' || 'Playwright Tests Failed' }} — Run #${{ github.run_number }}"
           body: |
             Playwright Automation Test Results
             ===================================
@@ -108,13 +108,13 @@ jobs:
             Repository  : ${{ github.repository }}
             Branch      : ${{ github.ref_name }}
             Triggered by: ${{ github.event_name }}
-            Status      : ${{ needs.test.result == 'success' && 'PASSED ✅' || 'FAILED ❌' }}
+            Status      : ${{ needs.test.result == 'success' && 'PASSED ' || 'FAILED ' }}
             Run Number  : #${{ github.run_number }}
 
-            📊 View Full HTML Report:
+            View Full HTML Report:
             https://naveenUT.github.io/Playwright_Claude/
 
-            🔗 Workflow Run Details:
+            Workflow Run Details:
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
             ---
