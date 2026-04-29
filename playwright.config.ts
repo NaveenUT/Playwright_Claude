@@ -8,7 +8,14 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
   workers: process.env.CI ? 1 : undefined,
-  reporter: [['html', { open: 'never' }]],
+  reporter: [
+    ['html', { open: 'never', outputFolder: 'playwright-report' }],
+    ['monocart-reporter', {
+      name: 'Henry Schein Test Report',
+      outputFile: 'monocart-report/index.html',
+    }],
+    ['json', { outputFile: 'results.json' }],
+  ],
   use: {
     baseURL: process.env.BASE_URL ?? 'https://www.henryschein.co.uk',
     headless: process.env.HEADLESS !== 'false',

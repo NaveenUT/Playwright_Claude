@@ -48,12 +48,11 @@ jobs:
 
       - name: Run regression tests
         if: success()
-        run: npm run test:regression -- --project=chromium --reporter=html,json
+        run: npm run test:regression -- --project=chromium
         env:
           BASE_URL: ${{ vars.BASE_URL || 'https://www.henryschein.co.uk' }}
           DOMAIN: ${{ vars.DOMAIN || 'UK Medical' }}
           HEADLESS: 'true'
-          PLAYWRIGHT_JSON_OUTPUT_NAME: results.json
 
       - name: Parse test results
         if: always()
@@ -101,7 +100,56 @@ jobs:
             fs.appendFileSync(process.env.GITHUB_OUTPUT, 'summary<<ENDSUMMARY\n' + summary + '\nENDSUMMARY\n');
           "
 
-      - name: Upload ZIP artifact
+      - name: Merge reports for GitHub Pages
+        if: always()
+        run: |
+          mkdir -p gh-pages/playwright-report
+          mkdir -p gh-pages/monocart-report
+          cp -r playwright-report/. gh-pages/playwright-report/ 2>/dev/null || true
+          cp -r monocart-report/. gh-pages/monocart-report/ 2>/dev/null || true
+          cat <<'EOF' > gh-pages/index.html
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8" />
+            <title>Henry Schein – Test Reports</title>
+            <style>
+              body { font-family: sans-serif; display: flex; flex-direction: column;
+                     align-items: center; justify-content: center; height: 100vh; margin: 0;
+                     background: #f5f5f5; }
+              h1 { color: #333; margin-bottom: 2rem; }
+              .cards { display: flex; gap: 2rem; }
+              .card { background: white; border-radius: 10px; padding: 2rem 3rem;
+                      text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+                      text-decoration: none; color: #333; transition: transform 0.2s; }
+              .card:hover { transform: translateY(-4px); }
+              .card h2 { margin: 0 0 0.5rem; font-size: 1.3rem; }
+              .card p { margin: 0; color: #777; font-size: 0.9rem; }
+              .badge { display: inline-block; margin-top: 1rem; padding: 0.3rem 0.8rem;
+                       border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
+              .badge-blue { background: #e3f0ff; color: #1a6fcc; }
+              .badge-green { background: #e3ffe8; color: #1a8c35; }
+            </style>
+          </head>
+          <body>
+            <h1>Henry Schein – Playwright Test Reports</h1>
+            <div class="cards">
+              <a class="card" href="monocart-report/index.html">
+                <h2>Monocart Report</h2>
+                <p>Charts · Duration bars · Tag breakdown</p>
+                <span class="badge badge-green">With Charts</span>
+              </a>
+              <a class="card" href="playwright-report/index.html">
+                <h2>Playwright Report</h2>
+                <p>Trace viewer · Steps · Video · Screenshots</p>
+                <span class="badge badge-blue">Detailed Trace</span>
+              </a>
+            </div>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload Playwright report artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -109,11 +157,19 @@ jobs:
           path: playwright-report/
           retention-days: 30
 
+      - name: Upload Monocart report artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: monocart-report-${{ github.run_number }}
+          path: monocart-report/
+          retention-days: 30
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         if: always()
         with:
-          path: playwright-report/
+          path: gh-pages/
 
   deploy-report:
     name: Publish Report to GitHub Pages
@@ -166,8 +222,11 @@ jobs:
             ----------------
             ${{ needs.test.outputs.summary }}
 
-            View Full HTML Report:
-            https://naveenUT.github.io/Playwright_Claude/
+            View Reports:
+            -------------
+            Landing Page  : https://naveenUT.github.io/Playwright_Claude/
+            Monocart      : https://naveenUT.github.io/Playwright_Claude/monocart-report/
+            Playwright    : https://naveenUT.github.io/Playwright_Claude/playwright-report/
 
             Workflow Run Details:
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
