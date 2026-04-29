@@ -13,8 +13,8 @@ export default defineConfig({
     baseURL: process.env.BASE_URL ?? 'https://www.henryschein.co.uk',
     headless: process.env.HEADLESS !== 'false',
     screenshot: 'only-on-failure',
-    video: 'on-first-retry',
-    trace: 'on-first-retry',
+    video: 'retain-on-failure',
+    trace: 'retain-on-failure',
   },
   projects: [
     {
