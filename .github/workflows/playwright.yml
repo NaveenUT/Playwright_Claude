@@ -80,3 +80,42 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  send-email:
+    name: Send Email Report
+    needs: [test, deploy-report]
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Send test report email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          to: ${{ secrets.MAIL_TO }}
+          from: Playwright CI <${{ secrets.MAIL_USERNAME }}>
+          subject: "${{ needs.test.result == 'success' && '✅ Playwright Tests Passed' || '❌ Playwright Tests Failed' }} — Run #${{ github.run_number }}"
+          body: |
+            Playwright Automation Test Results
+            ===================================
+
+            Repository  : ${{ github.repository }}
+            Branch      : ${{ github.ref_name }}
+            Triggered by: ${{ github.event_name }}
+            Status      : ${{ needs.test.result == 'success' && 'PASSED ✅' || 'FAILED ❌' }}
+            Run Number  : #${{ github.run_number }}
+
+            📊 View Full HTML Report:
+            https://naveenUT.github.io/Playwright_Claude/
+
+            🔗 Workflow Run Details:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            ---
+            This is an automated message from GitHub Actions.
