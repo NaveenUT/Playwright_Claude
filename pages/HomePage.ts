@@ -31,7 +31,7 @@ export class HomePage extends BasePage {
     this.searchInput = page.locator('input[placeholder="Search Henry Schein"], #search-input, [name="q"]').first();
     this.searchBtn = page.locator('button[type="submit"], .search-button, [aria-label="Search"]').first();
     this.signInLink = page.locator('text=Sign4134').first();
-    this.signUpLink = page.locator('text=Sign Up').first();
+    this.signUpLink = page.locator('text=Sign8979').first();
     this.cartIcon = page.locator('[data-test-id="cart_image_icon_notloggedin"]');
 
     // Navigation
