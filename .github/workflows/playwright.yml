@@ -105,8 +105,10 @@ jobs:
         run: |
           mkdir -p gh-pages/playwright-report
           mkdir -p gh-pages/monocart-report
+          mkdir -p gh-pages/custom-report
           cp -r playwright-report/. gh-pages/playwright-report/ 2>/dev/null || true
           cp -r monocart-report/. gh-pages/monocart-report/ 2>/dev/null || true
+          cp -r custom-report/. gh-pages/custom-report/ 2>/dev/null || true
           cat <<'EOF' > gh-pages/index.html
           <!DOCTYPE html>
           <html lang="en">
@@ -115,25 +117,32 @@ jobs:
             <title>Henry Schein – Test Reports</title>
             <style>
               body { font-family: sans-serif; display: flex; flex-direction: column;
-                     align-items: center; justify-content: center; height: 100vh; margin: 0;
-                     background: #f5f5f5; }
-              h1 { color: #333; margin-bottom: 2rem; }
-              .cards { display: flex; gap: 2rem; }
-              .card { background: white; border-radius: 10px; padding: 2rem 3rem;
-                      text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-                      text-decoration: none; color: #333; transition: transform 0.2s; }
-              .card:hover { transform: translateY(-4px); }
-              .card h2 { margin: 0 0 0.5rem; font-size: 1.3rem; }
-              .card p { margin: 0; color: #777; font-size: 0.9rem; }
-              .badge { display: inline-block; margin-top: 1rem; padding: 0.3rem 0.8rem;
-                       border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
-              .badge-blue { background: #e3f0ff; color: #1a6fcc; }
-              .badge-green { background: #e3ffe8; color: #1a8c35; }
+                     align-items: center; justify-content: center; min-height: 100vh; margin: 0;
+                     background: #f0f2f5; }
+              h1 { color: #1a1a2e; margin-bottom: 2rem; font-size: 1.6rem; }
+              .cards { display: flex; gap: 2rem; flex-wrap: wrap; justify-content: center; padding: 1rem; }
+              .card { background: white; border-radius: 12px; padding: 2rem 2.5rem;
+                      text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+                      text-decoration: none; color: #333; transition: transform 0.2s, box-shadow 0.2s;
+                      min-width: 200px; }
+              .card:hover { transform: translateY(-5px); box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+              .card h2 { margin: 0 0 0.5rem; font-size: 1.2rem; color: #1a1a2e; }
+              .card p { margin: 0; color: #777; font-size: 0.88rem; }
+              .badge { display: inline-block; margin-top: 1rem; padding: 0.3rem 0.9rem;
+                       border-radius: 20px; font-size: 0.78rem; font-weight: bold; }
+              .badge-blue   { background: #e3f0ff; color: #1a6fcc; }
+              .badge-green  { background: #e3ffe8; color: #1a8c35; }
+              .badge-purple { background: #ede9fe; color: #6d28d9; }
             </style>
           </head>
           <body>
             <h1>Henry Schein – Playwright Test Reports</h1>
             <div class="cards">
+              <a class="card" href="custom-report/index.html">
+                <h2>Custom Report</h2>
+                <p>Charts · Suites · Screenshots · Video · Trace</p>
+                <span class="badge badge-purple">Full Custom</span>
+              </a>
               <a class="card" href="monocart-report/index.html">
                 <h2>Monocart Report</h2>
                 <p>Charts · Duration bars · Tag breakdown</p>
@@ -163,6 +172,14 @@ jobs:
         with:
           name: monocart-report-${{ github.run_number }}
           path: monocart-report/
+          retention-days: 30
+
+      - name: Upload Custom report artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: custom-report-${{ github.run_number }}
+          path: custom-report/
           retention-days: 30
 
       - name: Upload Pages artifact
@@ -225,6 +242,7 @@ jobs:
             View Reports:
             -------------
             Landing Page  : https://naveenUT.github.io/Playwright_Claude/
+            Custom Report : https://naveenUT.github.io/Playwright_Claude/custom-report/
             Monocart      : https://naveenUT.github.io/Playwright_Claude/monocart-report/
             Playwright    : https://naveenUT.github.io/Playwright_Claude/playwright-report/
 

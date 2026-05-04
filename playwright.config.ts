@@ -6,7 +6,7 @@ export default defineConfig({
   timeout: 60000,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 1,
+  retries: process.env.CI ? 1 : 1,
   workers: process.env.CI ? 1 : undefined,
   reporter: [
     ['html', { open: 'never', outputFolder: 'playwright-report' }],
@@ -15,6 +15,7 @@ export default defineConfig({
       outputFile: 'monocart-report/index.html',
     }],
     ['json', { outputFile: 'results.json' }],
+    ['./reporters/customReporter.ts'],
   ],
   use: {
     baseURL: process.env.BASE_URL ?? 'https://www.henryschein.co.uk',
@@ -28,13 +29,13 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
+    // {
+    //   name: 'firefox',
+    //   use: { ...devices['Desktop Firefox'] },
+    // },
+    // {
+    //   name: 'webkit',
+    //   use: { ...devices['Desktop Safari'] },
+    // },
   ],
 });

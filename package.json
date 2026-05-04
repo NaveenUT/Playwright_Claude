@@ -9,7 +9,8 @@
     "test:smoke": "npx playwright test --grep @smoke",
     "test:regression": "npx playwright test --grep @regression",
     "test:homepage": "npx playwright test --grep @homepage",
-    "test:search": "npx playwright test --grep @search"
+    "test:search": "npx playwright test --grep @search",
+    "custom:report": "npx http-server custom-report -o -p 9325"
   },
   "keywords": [],
   "author": "",
