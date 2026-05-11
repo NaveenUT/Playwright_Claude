@@ -2,14 +2,13 @@ pipeline {
     agent any
 
     // Required Jenkins plugins:
-    //   - NodeJS Plugin          → tools block (Node 24)
+    //   - NodeJS Plugin          → tools block (Node 20)
     //   - HTML Publisher Plugin  → publishHTML steps
     //   - Email Extension Plugin → emailext step
     //   - Credentials Binding    → withCredentials block
 
     tools {
-        // Go to: Manage Jenkins → Tools → NodeJS installations
-        // Add installation named exactly "NodeJS-20" with version 20.x
+        // Manage Jenkins → Tools → NodeJS installations → Add "NodeJS-20" (version 20.x)
         nodejs 'NodeJS-20'
     }
 
@@ -41,13 +40,13 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                sh 'npm ci'
+                bat 'npm ci'
             }
         }
 
         stage('Install Playwright Browsers') {
             steps {
-                sh 'npx playwright install chromium --with-deps'
+                bat 'npx playwright install chromium --with-deps'
             }
         }
 
@@ -55,7 +54,7 @@ pipeline {
             steps {
                 // catchError lets the pipeline continue to publish reports even if tests fail
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-                    sh 'npm run test:smoke -- --project=chromium'
+                    bat 'npm run test:smoke -- --project=chromium'
                 }
             }
         }
@@ -67,7 +66,7 @@ pipeline {
             }
             steps {
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-                    sh 'npm run test:regression -- --project=chromium'
+                    bat 'npm run test:regression -- --project=chromium'
                 }
             }
         }
@@ -109,14 +108,13 @@ pipeline {
                 allowEmptyArchive: true
             )
 
-            // ── Parse results.json into a summary (same logic as GitHub Actions) ──
+            // ── Parse results.json — write helper script then run with node ───
             script {
                 env.TEST_SUMMARY = 'No results file found (smoke tests may have failed before regression ran).'
                 if (fileExists('results.json')) {
-                    env.TEST_SUMMARY = sh(returnStdout: true, script: '''
-node -e "
-const fs = require('fs');
-const r = JSON.parse(fs.readFileSync('results.json', 'utf8'));
+                    writeFile file: 'parse-results.js', text: '''
+const fs = require("fs");
+const r = JSON.parse(fs.readFileSync("results.json", "utf8"));
 const stats = r.stats || {};
 const passed  = stats.expected  || 0;
 const failed  = stats.unexpected || 0;
@@ -127,9 +125,9 @@ const total   = passed + failed + flaky + skipped;
 function collectTests(suites, list) {
   for (const suite of suites || []) {
     for (const test of suite.tests || []) {
-      const icon = test.status === 'expected' ? 'PASS' :
-                   test.status === 'skipped'  ? 'SKIP' : 'FAIL';
-      list.push(icon + ' | ' + test.title);
+      const icon = test.status === "expected" ? "PASS" :
+                   test.status === "skipped"  ? "SKIP" : "FAIL";
+      list.push(icon + " | " + test.title);
     }
     collectTests(suite.suites, list);
   }
@@ -138,35 +136,36 @@ const tests = [];
 collectTests(r.suites, tests);
 
 const lines = [
-  'Total   : ' + total,
-  'Passed  : ' + passed,
-  'Failed  : ' + (failed + flaky),
-  'Skipped : ' + skipped,
-  '',
-  'Test Details:',
+  "Total   : " + total,
+  "Passed  : " + passed,
+  "Failed  : " + (failed + flaky),
+  "Skipped : " + skipped,
+  "",
+  "Test Details:",
   ...tests
 ];
-process.stdout.write(lines.join('\\n'));
-"
-''').trim()
+process.stdout.write(lines.join("\\n"));
+'''
+                    env.TEST_SUMMARY = bat(returnStdout: true, script: 'node parse-results.js').trim()
                 }
             }
 
-            // ── Send email report (mirrors GitHub Actions send-email job) ─────
-            // Store these 3 values in Jenkins credentials as Secret Text:
-            //   Credential ID: MAIL_USERNAME  → your Gmail address
-            //   Credential ID: MAIL_PASSWORD  → your Gmail App Password
-            //   Credential ID: MAIL_TO        → recipient email address
-            withCredentials([
-                string(credentialsId: 'MAIL_USERNAME', variable: 'MAIL_USERNAME'),
-                string(credentialsId: 'MAIL_PASSWORD', variable: 'MAIL_PASSWORD'),
-                string(credentialsId: 'MAIL_TO',       variable: 'MAIL_TO')
-            ]) {
-                emailext(
-                    from    : "Playwright CI <${env.MAIL_USERNAME}>",
-                    to      : "${env.MAIL_TO}",
-                    subject : "${currentBuild.currentResult == 'SUCCESS' ? 'Playwright Tests Passed' : 'Playwright Tests Failed'} — Build #${env.BUILD_NUMBER}",
-                    body    : """Playwright Automation Test Results
+            // ── Send email report ─────────────────────────────────────────────
+            // Add these 3 Secret Text credentials in Jenkins:
+            //   Manage Jenkins → Credentials → Global → Add Credential (Secret text)
+            //   IDs: MAIL_USERNAME, MAIL_PASSWORD, MAIL_TO
+            script {
+                try {
+                    withCredentials([
+                        string(credentialsId: 'MAIL_USERNAME', variable: 'MAIL_USERNAME'),
+                        string(credentialsId: 'MAIL_PASSWORD', variable: 'MAIL_PASSWORD'),
+                        string(credentialsId: 'MAIL_TO',       variable: 'MAIL_TO')
+                    ]) {
+                        emailext(
+                            from    : "Playwright CI <${env.MAIL_USERNAME}>",
+                            to      : "${env.MAIL_TO}",
+                            subject : "${currentBuild.currentResult == 'SUCCESS' ? 'Playwright Tests Passed' : 'Playwright Tests Failed'} — Build #${env.BUILD_NUMBER}",
+                            body    : """Playwright Automation Test Results
 ===================================
 
 Job          : ${env.JOB_NAME}
@@ -187,7 +186,11 @@ Playwright      : ${env.BUILD_URL}Playwright_Report/
 
 ---
 This is an automated message from Jenkins."""
-                )
+                        )
+                    }
+                } catch (err) {
+                    echo "Email skipped: ${err.getMessage()}"
+                }
             }
 
         }
