@@ -39,18 +39,21 @@ pipeline {
         }
 
         stage('Install Dependencies') {
+            when { branch 'main' }
             steps {
                 bat 'npm ci'
             }
         }
 
         stage('Install Playwright Browsers') {
+            when { branch 'main' }
             steps {
                 bat 'npx playwright install chromium --with-deps'
             }
         }
 
         stage('Smoke Tests') {
+            when { branch 'main' }
             steps {
                 // catchError lets the pipeline continue to publish reports even if tests fail
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
@@ -60,9 +63,12 @@ pipeline {
         }
 
         stage('Regression Tests') {
-            // Only runs if Smoke Tests passed — mirrors `if: success()` in GitHub Actions
+            // Only runs if on main AND Smoke Tests passed
             when {
-                expression { currentBuild.currentResult == 'SUCCESS' }
+                allOf {
+                    branch 'main'
+                    expression { currentBuild.currentResult == 'SUCCESS' }
+                }
             }
             steps {
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
