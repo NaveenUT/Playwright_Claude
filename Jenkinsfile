@@ -21,6 +21,7 @@ pipeline {
         BASE_URL = 'https://www.henryschein.co.uk'
         DOMAIN   = 'UK Medical'
         HEADLESS = 'true'
+        MAIL_TO  = 'gopikasrip@unitedtechno.com'
     }
 
     options {
@@ -157,9 +158,7 @@ process.stdout.write(lines.join("\\n"));
             script {
                 try {
                     withCredentials([
-                        string(credentialsId: 'MAIL_USERNAME', variable: 'MAIL_USERNAME'),
-                        string(credentialsId: 'MAIL_PASSWORD', variable: 'MAIL_PASSWORD'),
-                        string(credentialsId: 'MAIL_TO',       variable: 'MAIL_TO')
+                        usernamePassword(credentialsId: 'gmail_credentials', usernameVariable: 'MAIL_USERNAME', passwordVariable: 'MAIL_PASSWORD')
                     ]) {
                         emailext(
                             from    : "Playwright CI <${env.MAIL_USERNAME}>",
