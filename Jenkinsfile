@@ -163,9 +163,6 @@ process.stdout.write(lines.join('\\n'));
                 string(credentialsId: 'MAIL_TO',       variable: 'MAIL_TO')
             ]) {
                 emailext(
-                    smtpHost: 'smtp.gmail.com',
-                    smtpPort: '465',
-                    useSsl  : true,
                     from    : "Playwright CI <${env.MAIL_USERNAME}>",
                     to      : "${env.MAIL_TO}",
                     subject : "${currentBuild.currentResult == 'SUCCESS' ? 'Playwright Tests Passed' : 'Playwright Tests Failed'} — Build #${env.BUILD_NUMBER}",
