@@ -161,29 +161,26 @@ process.stdout.write(lines.join("\\n"));
                         usernamePassword(credentialsId: 'gmail_credentials', usernameVariable: 'MAIL_USERNAME', passwordVariable: 'MAIL_PASSWORD')
                     ]) {
                         emailext(
-                            from    : "Playwright CI <${env.MAIL_USERNAME}>",
-                            to      : "${env.MAIL_TO}",
-                            subject : "${currentBuild.currentResult == 'SUCCESS' ? 'Playwright Tests Passed' : 'Playwright Tests Failed'} — Build #${env.BUILD_NUMBER}",
-                            body    : """Playwright Automation Test Results
+                            from                : "Playwright CI <${env.MAIL_USERNAME}>",
+                            to                  : "${env.MAIL_TO}",
+                            subject             : "${currentBuild.currentResult == 'SUCCESS' ? 'Playwright Tests Passed' : 'Playwright Tests Failed'} — Build #${env.BUILD_NUMBER}",
+                            attachmentsPattern  : 'custom-report/index.html,playwright-report/index.html,monocart-report/index.html',
+                            body                : """Playwright Automation Test Results
 ===================================
 
 Job          : ${env.JOB_NAME}
 Branch       : ${env.GIT_BRANCH ?: 'main'}
 Build Number : #${env.BUILD_NUMBER}
 Status       : ${currentBuild.currentResult}
-Build URL    : ${env.BUILD_URL}
 
 Results Summary:
 ----------------
 ${env.TEST_SUMMARY}
 
-View Reports:
--------------
-Custom Report   : ${env.BUILD_URL}Custom_Report/
-Monocart Report : ${env.BUILD_URL}Monocart_Report/
-Playwright      : ${env.BUILD_URL}Playwright_Report/
-
 ---
+Reports are attached to this email.
+Open the attached HTML files in your browser to view the full report.
+
 This is an automated message from Jenkins."""
                         )
                     }
