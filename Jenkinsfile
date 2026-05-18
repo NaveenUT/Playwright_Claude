@@ -12,7 +12,7 @@ pipeline {
     }
 
     triggers {
-        cron('0 6 * * *')
+        cron('30 0 * * *')  // every day at 06:00 AM IST (UTC+5:30)
     }
 
     environment {
