@@ -197,7 +197,7 @@ const lines = [
 ];
 process.stdout.write(lines.join("\\n"));
 '''
-                    env.TEST_SUMMARY = bat(returnStdout: true, script: 'node parse-results.js').trim()
+                    env.TEST_SUMMARY = bat(returnStdout: true, script: '@node parse-results.js').trim()
                 }
             }
 
