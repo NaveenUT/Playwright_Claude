@@ -137,7 +137,8 @@ class CustomReporter implements Reporter {
     const videosDir     = path.join(outDir, 'videos');
     const tracesDir     = path.join(outDir, 'traces');
     const traceViewerSrc = path.join(
-      path.dirname(require.resolve('playwright-core')),
+      process.cwd(),
+      'node_modules', 'playwright-core',
       'lib/vite/traceViewer'
     );
     const traceViewerDst = path.join(outDir, 'trace-viewer');

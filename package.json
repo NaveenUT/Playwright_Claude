@@ -2,6 +2,7 @@
   "name": "playwright_prompt_setup",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "npx playwright test",
     "test:headed": "npx playwright test --headed",
@@ -10,6 +11,10 @@
     "test:regression": "npx playwright test --grep @regression",
     "test:homepage": "npx playwright test --grep @homepage",
     "test:search": "npx playwright test --grep @search",
+    "test:login": "npx playwright test --grep @login",
+    "test:cart": "npx playwright test --grep @cart",
+    "test:dashboard": "npx playwright test --grep @dashboard",
+    "test:sanity": "npx playwright test --grep @sanity",
     "custom:report": "npx http-server custom-report -o -p 9325"
   },
   "keywords": [],
@@ -18,9 +23,16 @@
   "description": "",
   "devDependencies": {
     "@playwright/test": "^1.59.1",
+    "@types/mssql": "^12.3.0",
     "@types/node": "^25.6.0",
     "dotenv": "^17.4.2",
     "monocart-reporter": "^2.10.1",
     "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "axios": "^1.16.0",
+    "express": "^5.2.1",
+    "msnodesqlv8": "^5.2.0",
+    "mssql": "^12.5.4"
   }
 }

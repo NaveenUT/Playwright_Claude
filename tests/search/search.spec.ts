@@ -5,7 +5,7 @@ test.describe('Henry Schein - Search', () => {
 
   test('TC01 - Search with a valid product returns results',
     {
-      tag: ['@smoke', '@search', '@regression'],
+      tag: ['@smoke', '@search', '@regression', '@sanity'],
       annotation: { type: 'feature', description: 'Valid product search returns results' },
     },
     async ({ searchPage }) => {

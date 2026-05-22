@@ -5,7 +5,7 @@ test.describe('Henry Schein - Homepage', () => {
 
   test('TC01 - Page title contains Henry Schein',
     {
-      tag: ['@smoke', '@homepage', '@regression'],
+      tag: ['@smoke', '@homepage', '@regression', '@sanity'],
       annotation: { type: 'feature', description: 'Page title validation' },
     },
     async ({ homePage }) => {

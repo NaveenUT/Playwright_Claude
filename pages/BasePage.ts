@@ -18,6 +18,7 @@ export class BasePage {
 
   async navigate(url: string): Promise<void> {
     await this.page.goto(url, { waitUntil: 'domcontentloaded' });
+    await this.acceptCookies();
   }
 
   async waitForPageLoad(): Promise<void> {
@@ -82,7 +83,6 @@ export class BasePage {
 
   async setup(): Promise<void> {
     await this.navigate(ENV_CONFIG.baseUrl);
-    await this.acceptCookies();
     await this.selectDomain(ENV_CONFIG.domain);
     await this.waitForPageLoad();
   }
