@@ -15,7 +15,10 @@
     "test:cart": "npx playwright test --grep @cart",
     "test:dashboard": "npx playwright test --grep @dashboard",
     "test:sanity": "npx playwright test --grep @sanity",
-    "custom:report": "npx http-server custom-report -o -p 9325"
+    "custom:report": "npx http-server custom-report -o -p 9325",
+    "stability:check": "node scripts/stability-check.js",
+    "stability:check:sanity": "node scripts/stability-check.js 10 @sanity chromium",
+    "stability:check:smoke": "node scripts/stability-check.js 10 @smoke chromium"
   },
   "keywords": [],
   "author": "",

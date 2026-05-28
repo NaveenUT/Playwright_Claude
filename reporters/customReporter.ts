@@ -170,6 +170,12 @@ class CustomReporter implements Reporter {
     const total   = results.length;
     const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
 
+    // Flaky analysis: tests that needed a retry (retryCount > 0)
+    const trulyFlaky     = results.filter((r: TestEntry) => r.retryCount > 0 && r.status === 'passed');
+    const consistentFail = results.filter((r: TestEntry) => r.retryCount > 0 && r.status === 'failed');
+    const neverRetried   = results.filter((r: TestEntry) => r.retryCount === 0 && r.status === 'passed');
+    const stabilityScore = passed > 0 ? Math.round((neverRetried.length / passed) * 100) : 100;
+
     const statusIcon = (_s: string) => '';
 
     const statusBadge = (s: string) => {
@@ -518,6 +524,30 @@ class CustomReporter implements Reporter {
     .retry-suggestion { font-size: 0.8rem; color: #1d4ed8; font-style: italic; }
     .no-retry         { padding: 1.2rem; text-align: center; color: #94a3b8; font-size: 0.85rem; }
 
+    /* Flaky analysis */
+    .flaky-section { padding: 0 2rem 2rem; }
+    .flaky-section h2 { font-size: 1rem; font-weight: 600; color: #374151;
+                         text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1rem; }
+    .flaky-wrap { background: white; border-radius: 12px;
+                   box-shadow: 0 2px 8px rgba(0,0,0,0.07); overflow: hidden; }
+    .stability-bar { display: flex; align-items: center; gap: 1.5rem; padding: 1rem 1.5rem;
+                      border-bottom: 1px solid #f1f5f9; }
+    .stability-score { font-size: 2rem; font-weight: 800; }
+    .stability-score.good   { color: #22c55e; }
+    .stability-score.warn   { color: #f59e0b; }
+    .stability-score.bad    { color: #ef4444; }
+    .stability-meta { font-size: 0.82rem; color: #64748b; line-height: 1.6; }
+    .flaky-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .flaky-table thead tr { background: #1a1a2e; color: white; }
+    .flaky-table thead th { padding: 0.75rem 1rem; text-align: left; font-weight: 600;
+                             font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    .flaky-table tbody tr { border-bottom: 1px solid #f1f5f9; }
+    .flaky-table td { padding: 0.75rem 1rem; vertical-align: top; }
+    .flaky-kind-badge { padding: 2px 8px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
+    .flaky-kind-intermittent { background: #fef3c7; color: #b45309; }
+    .flaky-kind-failing      { background: #fee2e2; color: #b91c1c; }
+    .no-flaky { padding: 1.2rem; text-align: center; color: #94a3b8; font-size: 0.85rem; }
+
     /* Footer */
     .footer { text-align: center; padding: 1.5rem; font-size: 0.8rem; color: #94a3b8; }
   </style>
@@ -560,6 +590,10 @@ class CustomReporter implements Reporter {
   <div class="card rate" onclick="scrollToResults()" title="View all tests">
     <div class="num">${passRate}%</div>
     <div class="label">Pass Rate</div>
+  </div>
+  <div class="card ${stabilityScore >= 99 ? 'pass' : stabilityScore >= 90 ? 'flaky' : 'fail'}" title="Tests that passed on first attempt (no retry needed)">
+    <div class="num">${stabilityScore}%</div>
+    <div class="label">Stability</div>
   </div>
 </div>
 
@@ -639,6 +673,37 @@ class CustomReporter implements Reporter {
             </tr>
           </thead>
           <tbody>${retryRows}</tbody>
+        </table>`}
+  </div>
+</div>
+
+<!-- Flaky Test Analysis -->
+<div class="flaky-section">
+  <h2>Flaky Test Analysis</h2>
+  <div class="flaky-wrap">
+    <div class="stability-bar">
+      <div class="stability-score ${stabilityScore >= 99 ? 'good' : stabilityScore >= 90 ? 'warn' : 'bad'}">${stabilityScore}%</div>
+      <div class="stability-meta">
+        <strong>Stability Score</strong> — ${neverRetried.length} of ${passed} passing tests needed no retry<br>
+        Intermittent (passed after retry): ${trulyFlaky.length} &nbsp;|&nbsp; Consistently failing: ${consistentFail.length}
+      </div>
+    </div>
+    ${(trulyFlaky.length === 0 && consistentFail.length === 0)
+      ? '<div class="no-flaky">No flaky or retried tests detected. Suite is fully stable.</div>'
+      : `<table class="flaky-table">
+          <thead>
+            <tr><th>Kind</th><th>Suite</th><th>Test Case</th><th>Retries</th><th>Final Result</th></tr>
+          </thead>
+          <tbody>
+            ${[...trulyFlaky.map(r => ({ ...r, kind: 'Intermittent' })), ...consistentFail.map(r => ({ ...r, kind: 'Consistently Failing' }))].map(r => `
+            <tr>
+              <td><span class="flaky-kind-badge ${r.kind === 'Intermittent' ? 'flaky-kind-intermittent' : 'flaky-kind-failing'}">${r.kind}</span></td>
+              <td style="color:#64748b;font-size:0.8rem">${r.suite}</td>
+              <td style="font-weight:600">${r.name}</td>
+              <td><span class="retry-count-badge">${r.retryCount}×</span></td>
+              <td><span class="${statusBadge(r.status)}">${r.status.toUpperCase()}</span></td>
+            </tr>`).join('')}
+          </tbody>
         </table>`}
   </div>
 </div>

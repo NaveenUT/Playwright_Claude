@@ -184,5 +184,16 @@ export const TEST_DATA = {
     deliveryAndReturnsUrl: '/delivery-returns',
     complaintAndResolutionPolicyUrl: '/complaint-resolution-policy',
   },
+  // Dev-01-Login Functionality
+  // Dev-01-Login Functionality
+  validUser: {
+    username: 'Naveenkumar',
+    password: 'Welcome@123',
+  },
+  invalidUser: {
+    username: 'invalid_user',
+    password: 'invalid_pass',
+  },
+  loginErrorMessage: 'Invalid username or password',
 };
 

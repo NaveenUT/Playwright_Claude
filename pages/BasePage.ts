@@ -1,5 +1,6 @@
 import { Page, Locator } from '@playwright/test';
 import { ENV_CONFIG } from '../utils/config';
+import { retryClick as _retryClick, waitForElementStable as _waitForElementStable, waitForAngularStable as _waitForAngularStable } from '../utils/waitHelpers';
 
 export class BasePage {
   readonly cookieBanner: Locator;
@@ -18,7 +19,16 @@ export class BasePage {
 
   async navigate(url: string): Promise<void> {
     await this.page.goto(url, { waitUntil: 'domcontentloaded' });
+    await _waitForAngularStable(this.page);
     await this.acceptCookies();
+  }
+
+  async retryClick(locator: Locator, retries = 3): Promise<void> {
+    await _retryClick(locator, retries);
+  }
+
+  async waitForElementStable(locator: Locator, stableDuration = 300): Promise<void> {
+    await _waitForElementStable(locator, stableDuration);
   }
 
   async waitForPageLoad(): Promise<void> {

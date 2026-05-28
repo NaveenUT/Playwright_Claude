@@ -57,6 +57,20 @@ export class CartPage extends BasePage {
   readonly sharingOptionTrigger: Locator;
   readonly saveListBtn: Locator;
   readonly  product_grid : Locator;
+  // Dev-02-Create Top Product Category Section on Home Page
+  readonly topProductCategoriesSection: Locator;
+  readonly topProductCategoriesSectionTitle: Locator;
+  readonly categoryContainers: Locator;
+  readonly diagnosticsUrologyCategory: Locator;
+  readonly paperProductsCategory: Locator;
+  readonly medicalInstrumentsCategory: Locator;
+  readonly infectionControlCategory: Locator;
+  readonly categoryShopNowButtons: Locator;
+  readonly diagnosticsUrologyShopNowBtn: Locator;
+  readonly paperProductsShopNowBtn: Locator;
+  readonly medicalInstrumentsShopNowBtn: Locator;
+  readonly infectionControlShopNowBtn: Locator;
+
   constructor(page: Page) {
     super(page);
 
@@ -125,6 +139,20 @@ export class CartPage extends BasePage {
     // Scoped to quick-add panel to avoid matching product recommendation cards
     this.quickAddToBasketBtn = page.locator('[data-test-id="btn_quick_order_add_to_cart"] ');
     this.cartItemCodes = page.locator('[data-test-id="cart_textbox_itemcode"]');
+
+    // Dev-02-Create Top Product Category Section on Home Page
+    this.topProductCategoriesSection = page.locator('section:has-text("Top Product Categories")').first();
+    this.topProductCategoriesSectionTitle = page.locator('h2:has-text("Top Product Categories")').first();
+    this.categoryContainers = page.locator('.category-item');
+    this.diagnosticsUrologyCategory = page.locator('.category-item:has-text("Diagnostics & Urology")').first();
+    this.paperProductsCategory = page.locator('.category-item:has-text("Paper Products")').first();
+    this.medicalInstrumentsCategory = page.locator('.category-item:has-text("Medical Instruments")').first();
+    this.infectionControlCategory = page.locator('.category-item:has-text("Infection Control")').first();
+    this.categoryShopNowButtons = page.locator('.category-item a:has-text("Shop Now")');
+    this.diagnosticsUrologyShopNowBtn = page.locator('.category-item:has-text("Diagnostics & Urology") a:has-text("Shop Now")').first();
+    this.paperProductsShopNowBtn = page.locator('.category-item:has-text("Paper Products") a:has-text("Shop Now")').first();
+    this.medicalInstrumentsShopNowBtn = page.locator('.category-item:has-text("Medical Instruments") a:has-text("Shop Now")').first();
+    this.infectionControlShopNowBtn = page.locator('.category-item:has-text("Infection Control") a:has-text("Shop Now")').first();
   }
 
   async login(username: string, password: string): Promise<void> {
