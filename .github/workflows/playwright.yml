@@ -22,6 +22,7 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     outputs:
       summary: ${{ steps.parse.outputs.summary }}
+      stability_summary: ${{ steps.stability-parse.outputs.stability_summary }}
 
     steps:
       - name: Checkout code
@@ -67,6 +68,14 @@ jobs:
           DOMAIN: ${{ vars.DOMAIN || 'UK Medical' }}
           HEADLESS: 'true'
 
+      - name: Run stability check (3 iterations of @smoke)
+        if: always()
+        run: node scripts/stability-check.js 3 @smoke chromium
+        env:
+          BASE_URL: ${{ vars.BASE_URL || 'https://www.henryschein.co.uk' }}
+          DOMAIN: ${{ vars.DOMAIN || 'UK Medical' }}
+          HEADLESS: 'true'
+
       - name: Parse test results
         if: always()
         id: parse
@@ -88,10 +97,9 @@ jobs:
 
             function collectTests(suites, list) {
               for (const suite of suites || []) {
-                for (const test of suite.tests || []) {
-                  const icon = test.status === 'expected' ? 'PASS' :
-                               test.status === 'skipped'  ? 'SKIP' : 'FAIL';
-                  list.push(icon + ' | ' + test.title);
+                for (const spec of suite.specs || []) {
+                  const icon = spec.ok ? 'PASS' : 'FAIL';
+                  list.push(icon + ' | ' + spec.title);
                 }
                 collectTests(suite.suites, list);
               }
@@ -113,15 +121,61 @@ jobs:
             fs.appendFileSync(process.env.GITHUB_OUTPUT, 'summary<<ENDSUMMARY\n' + summary + '\nENDSUMMARY\n');
           "
 
+      - name: Parse stability results
+        if: always()
+        id: stability-parse
+        run: |
+          node -e "
+            const fs = require('fs');
+            const jsonPath = 'stability-report/stability-report.json';
+            if (!fs.existsSync(jsonPath)) {
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, 'stability_summary<<ENDSTAB\nStability report not generated.\nENDSTAB\n');
+              process.exit(0);
+            }
+            const r = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+            const status = r.passRate >= 99 ? 'STABLE' : r.passRate >= 90 ? 'NEEDS ATTENTION' : 'UNSTABLE';
+
+            const grouped = {};
+            for (const t of r.testBreakdown || []) {
+              if (!grouped[t.file]) grouped[t.file] = [];
+              grouped[t.file].push(t);
+            }
+
+            const lines = [
+              'Stability Check — @smoke | chromium | ' + r.iterations + ' iterations',
+              'Pass Rate : ' + r.passRate + '%  (target >99%)',
+              'Status    : ' + status,
+              'Passed    : ' + r.totalPassed + ' / ' + r.totalExecutions + ' total executions',
+              'Failed    : ' + r.totalFailed,
+              'Flaky     : ' + (r.flakyTests || []).length,
+              '',
+              'Test Case Breakdown:',
+            ];
+
+            for (const [file, tests] of Object.entries(grouped)) {
+              lines.push('  [' + file + ']');
+              for (const t of tests) {
+                const tcMatch = t.title.match(/^(TC\d+)/i);
+                const tc = tcMatch ? tcMatch[1] : '——';
+                const status = t.fails === 0 ? 'STABLE' : t.passes === 0 ? 'FAILING' : 'FLAKY';
+                lines.push('    ' + tc + ' | ' + status + ' | Pass: ' + t.passes + '/' + t.total + ' (Itr: ' + (t.passedIts.join(',') || '—') + ') | Fail: ' + t.fails + '/' + t.total + ' (Itr: ' + (t.failedIts.join(',') || '—') + ')');
+              }
+            }
+
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'stability_summary<<ENDSTAB\n' + lines.join('\n') + '\nENDSTAB\n');
+          "
+
       - name: Merge reports for GitHub Pages
         if: always()
         run: |
           mkdir -p gh-pages/playwright-report
           mkdir -p gh-pages/monocart-report
           mkdir -p gh-pages/custom-report
+          mkdir -p gh-pages/stability-report
           cp -r playwright-report/. gh-pages/playwright-report/ 2>/dev/null || true
           cp -r monocart-report/. gh-pages/monocart-report/ 2>/dev/null || true
           cp -r custom-report/. gh-pages/custom-report/ 2>/dev/null || true
+          cp -r stability-report/. gh-pages/stability-report/ 2>/dev/null || true
           cat <<'EOF' > gh-pages/index.html
           <!DOCTYPE html>
           <html lang="en">
@@ -146,6 +200,7 @@ jobs:
               .badge-blue   { background: #e3f0ff; color: #1a6fcc; }
               .badge-green  { background: #e3ffe8; color: #1a8c35; }
               .badge-purple { background: #ede9fe; color: #6d28d9; }
+              .badge-orange { background: #fff3e0; color: #e65100; }
             </style>
           </head>
           <body>
@@ -165,6 +220,11 @@ jobs:
                 <h2>Playwright Report</h2>
                 <p>Trace viewer · Steps · Video · Screenshots</p>
                 <span class="badge badge-blue">Detailed Trace</span>
+              </a>
+              <a class="card" href="stability-report/index.html">
+                <h2>Stability Report</h2>
+                <p>Pass rate · Flaky tests · Per-test breakdown</p>
+                <span class="badge badge-orange">3-Run Stability</span>
               </a>
             </div>
           </body>
@@ -193,6 +253,14 @@ jobs:
         with:
           name: custom-report-${{ github.run_number }}
           path: custom-report/
+          retention-days: 30
+
+      - name: Upload Stability report artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stability-report-${{ github.run_number }}
+          path: stability-report/
           retention-days: 30
 
       - name: Upload Pages artifact
@@ -252,12 +320,17 @@ jobs:
             ----------------
             ${{ needs.test.outputs.summary }}
 
+            Stability Summary (3-run @smoke):
+            ----------------------------------
+            ${{ needs.test.outputs.stability_summary }}
+
             View Reports:
             -------------
-            Landing Page  : https://naveenUT.github.io/Playwright_Claude/
-            Custom Report : https://naveenUT.github.io/Playwright_Claude/custom-report/
-            Monocart      : https://naveenUT.github.io/Playwright_Claude/monocart-report/
-            Playwright    : https://naveenUT.github.io/Playwright_Claude/playwright-report/
+            Landing Page      : https://naveenUT.github.io/Playwright_Claude/
+            Custom Report     : https://naveenUT.github.io/Playwright_Claude/custom-report/
+            Monocart          : https://naveenUT.github.io/Playwright_Claude/monocart-report/
+            Playwright        : https://naveenUT.github.io/Playwright_Claude/playwright-report/
+            Stability Report  : https://naveenUT.github.io/Playwright_Claude/stability-report/
 
             Workflow Run Details:
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
