@@ -1,6 +1,25 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type APIRequestContext } from '@playwright/test';
 
 const API_BASE = 'https://simple-grocery-store-api.click';
+
+/** Helper — registers a new API client and returns its access token */
+async function getAccessToken(request: APIRequestContext): Promise<string> {
+  const res  = await request.post(`${API_BASE}/api-clients`, {
+    data: {
+      clientName : 'Playwright Complex Test',
+      clientEmail: `playwright.complex.${Date.now()}@example.com`,
+    },
+  });
+  const body = await res.json();
+  return body.accessToken as string;
+}
+
+/** Helper — creates a new cart and returns its cartId */
+async function createCart(request: APIRequestContext): Promise<string> {
+  const res  = await request.post(`${API_BASE}/carts`);
+  const body = await res.json();
+  return body.cartId as string;
+}
 
 /**
  * Simple Grocery Store API Test Suite
@@ -211,6 +230,342 @@ test.describe.serial('Simple Grocery Store API', () => {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     expect(checkRes.status()).toBe(404);
+  });
+
+});
+
+// ── Complex Chain Flow Tests ───────────────────────────────────────────────────
+
+test.describe('Simple Grocery Store API — Complex Chain Flows', () => {
+
+  test('TC16 - Health check gates product discovery — status UP enables product fetch and detail match @smoke @api @regression', async ({ request }) => {
+    // Step 1: verify API is healthy
+    const statusRes  = await request.get(`${API_BASE}/status`);
+    const statusBody = await statusRes.json();
+    expect(statusRes.status()).toBe(200);
+    expect(statusBody.status).toBe('UP');
+
+    // Step 2: get product list only after confirming UP
+    const listRes  = await request.get(`${API_BASE}/products?available=true&results=5`);
+    const products = await listRes.json();
+    expect(listRes.status()).toBe(200);
+    expect(products.length).toBeGreaterThan(0);
+
+    // Step 3: use productId from list → fetch product detail
+    const productId = products[0].id;
+    const detailRes = await request.get(`${API_BASE}/products/${productId}`);
+    const detail    = await detailRes.json();
+
+    // Step 4: verify detail matches what the list returned
+    expect(detailRes.status()).toBe(200);
+    expect(detail.id).toBe(productId);
+    expect(detail.name).toBe(products[0].name);
+    expect(detail.category).toBe(products[0].category);
+  });
+
+  test('TC17 - Category filter response feeds product detail — verify category and name match @smoke @api @regression', async ({ request }) => {
+    // Step 1: get coffee products
+    const listRes = await request.get(`${API_BASE}/products?category=coffee`);
+    const coffees = await listRes.json();
+    expect(listRes.status()).toBe(200);
+    expect(coffees.length).toBeGreaterThan(0);
+
+    // Step 2: extract productId and name from category response
+    const { id: productId, name: expectedName } = coffees[0];
+
+    // Step 3: fetch full product detail using extracted ID
+    const detailRes = await request.get(`${API_BASE}/products/${productId}`);
+    const detail    = await detailRes.json();
+
+    // Step 4: verify detail matches the category list entry
+    expect(detailRes.status()).toBe(200);
+    expect(detail.id).toBe(productId);
+    expect(detail.name).toBe(expectedName);
+    expect(detail.category).toBe('coffee');
+  });
+
+  test('TC18 - Product search feeds cart creation and item add — verify correct product in cart @smoke @api @regression', async ({ request }) => {
+    // Step 1: search available products
+    const listRes  = await request.get(`${API_BASE}/products?available=true&results=3`);
+    const products = await listRes.json();
+    const productId = products[0].id;
+
+    // Step 2: create cart
+    const cartId = await createCart(request);
+
+    // Step 3: add product from step 1 to cart from step 2
+    const addRes = await request.post(`${API_BASE}/carts/${cartId}/items`, {
+      data: { productId },
+    });
+    expect(addRes.status()).toBe(201);
+
+    // Step 4: fetch cart items and verify the productId matches step 1
+    const itemsRes = await request.get(`${API_BASE}/carts/${cartId}/items`);
+    const items    = await itemsRes.json();
+    expect(items.length).toBe(1);
+    expect(items[0].productId).toBe(productId);
+  });
+
+  test('TC19 - Add item → extract itemId from GET → modify quantity → verify updated value @smoke @api @regression', async ({ request }) => {
+    // Step 1: create cart and add item
+    const cartId    = await createCart(request);
+    const listRes   = await request.get(`${API_BASE}/products?available=true&results=1`);
+    const [product] = await listRes.json();
+    await request.post(`${API_BASE}/carts/${cartId}/items`, { data: { productId: product.id } });
+
+    // Step 2: GET cart items — extract itemId from response
+    const itemsRes1 = await request.get(`${API_BASE}/carts/${cartId}/items`);
+    const items1    = await itemsRes1.json();
+    const itemId    = items1[0].id;
+
+    // Step 3: PATCH quantity using itemId extracted in step 2
+    const patchRes = await request.patch(`${API_BASE}/carts/${cartId}/items/${itemId}`, {
+      data: { quantity: 5 },
+    });
+    expect(patchRes.status()).toBe(204);
+
+    // Step 4: GET cart items again — verify quantity is 5
+    const itemsRes2 = await request.get(`${API_BASE}/carts/${cartId}/items`);
+    const items2    = await itemsRes2.json();
+    const updated   = items2.find((i: { id: number }) => i.id === itemId);
+    expect(updated.quantity).toBe(5);
+  });
+
+  test('TC20 - Add productA → replace with productB from different category → verify item changed @smoke @api @regression', async ({ request }) => {
+    // Step 1: get a coffee product (productA)
+    const coffeeRes = await request.get(`${API_BASE}/products?category=coffee&available=true`);
+    const productA  = (await coffeeRes.json())[0].id;
+
+    // Step 2: create cart and add productA
+    const cartId = await createCart(request);
+    await request.post(`${API_BASE}/carts/${cartId}/items`, { data: { productId: productA } });
+
+    // Step 3: GET items — extract itemId
+    const itemsRes1 = await request.get(`${API_BASE}/carts/${cartId}/items`);
+    const itemId    = (await itemsRes1.json())[0].id;
+
+    // Step 4: get a dairy product (productB)
+    const dairyRes = await request.get(`${API_BASE}/products?category=dairy&available=true`);
+    const productB = (await dairyRes.json())[0].id;
+
+    // Step 5: PUT replace using itemId from step 3 and productB from step 4
+    const replaceRes = await request.put(`${API_BASE}/carts/${cartId}/items/${itemId}`, {
+      data: { productId: productB, quantity: 2 },
+    });
+    expect(replaceRes.status()).toBe(204);
+
+    // Step 6: GET items — verify productId changed from A to B
+    const itemsRes2 = await request.get(`${API_BASE}/carts/${cartId}/items`);
+    const items2    = await itemsRes2.json();
+    expect(items2[0].productId).toBe(productB);
+    expect(items2[0].productId).not.toBe(productA);
+    expect(items2[0].quantity).toBe(2);
+  });
+
+  test('TC21 - Register client → create order → PATCH comment → GET order → verify comment updated @smoke @api @regression', async ({ request }) => {
+    // Step 1: register API client → extract token
+    const token  = await getAccessToken(request);
+
+    // Step 2: create cart and add item
+    const cartId    = await createCart(request);
+    const listRes   = await request.get(`${API_BASE}/products?available=true&results=1`);
+    const [product] = await listRes.json();
+    await request.post(`${API_BASE}/carts/${cartId}/items`, { data: { productId: product.id } });
+
+    // Step 3: create order using token from step 1 and cartId from step 2
+    const orderRes    = await request.post(`${API_BASE}/orders`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data   : { cartId, customerName: 'Chain Test User' },
+    });
+    const { orderId } = await orderRes.json();
+    expect(orderRes.status()).toBe(201);
+
+    // Step 4: PATCH order with a comment using orderId from step 3
+    const patchRes = await request.patch(`${API_BASE}/orders/${orderId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data   : { comment: 'Please leave at the door' },
+    });
+    expect(patchRes.status()).toBe(204);
+
+    // Step 5: GET order — verify comment from step 4 is present
+    const getRes = await request.get(`${API_BASE}/orders/${orderId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const order  = await getRes.json();
+    expect(order.comment).toBe('Please leave at the door');
+    expect(order.customerName).toBe('Chain Test User');
+
+    // Cleanup
+    await request.delete(`${API_BASE}/orders/${orderId}`, { headers: { Authorization: `Bearer ${token}` } });
+  });
+
+  test('TC22 - Multi-category cart → order → verify order items count matches cart @smoke @api @regression', async ({ request }) => {
+    // Step 1: get one coffee product
+    const coffeeRes = await request.get(`${API_BASE}/products?category=coffee&available=true`);
+    const coffeeId  = (await coffeeRes.json())[0].id;
+
+    // Step 2: get one dairy product
+    const dairyRes = await request.get(`${API_BASE}/products?category=dairy&available=true`);
+    const dairyId  = (await dairyRes.json())[0].id;
+
+    // Step 3: create cart and add both products from steps 1 and 2
+    const cartId = await createCart(request);
+    await request.post(`${API_BASE}/carts/${cartId}/items`, { data: { productId: coffeeId } });
+    await request.post(`${API_BASE}/carts/${cartId}/items`, { data: { productId: dairyId } });
+
+    // Step 4: verify 2 items from different categories exist in cart
+    const itemsRes = await request.get(`${API_BASE}/carts/${cartId}/items`);
+    const items    = await itemsRes.json();
+    expect(items.length).toBe(2);
+    const productIds = items.map((i: { productId: number }) => i.productId);
+    expect(productIds).toContain(coffeeId);
+    expect(productIds).toContain(dairyId);
+
+    // Step 5: create order using cartId and token
+    const token    = await getAccessToken(request);
+    const orderRes = await request.post(`${API_BASE}/orders`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data   : { cartId, customerName: 'Multi Category Buyer' },
+    });
+    const { orderId } = await orderRes.json();
+    expect(orderRes.status()).toBe(201);
+
+    // Step 6: GET order — verify it contains items matching the cart
+    const getRes = await request.get(`${API_BASE}/orders/${orderId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const order  = await getRes.json();
+    expect(order.items.length).toBe(2);
+
+    // Cleanup
+    await request.delete(`${API_BASE}/orders/${orderId}`, { headers: { Authorization: `Bearer ${token}` } });
+  });
+
+  test('TC23 - GET all orders count → create order → GET all orders → verify count increased by 1 @smoke @api @regression', async ({ request }) => {
+    const token = await getAccessToken(request);
+
+    // Step 1: GET all orders — record current count
+    const beforeRes    = await request.get(`${API_BASE}/orders`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const countBefore  = (await beforeRes.json()).length;
+    expect(beforeRes.status()).toBe(200);
+
+    // Step 2: create cart and add item
+    const cartId    = await createCart(request);
+    const listRes   = await request.get(`${API_BASE}/products?available=true&results=1`);
+    const [product] = await listRes.json();
+    await request.post(`${API_BASE}/carts/${cartId}/items`, { data: { productId: product.id } });
+
+    // Step 3: create order using cartId from step 2
+    const orderRes    = await request.post(`${API_BASE}/orders`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data   : { cartId, customerName: 'Count Test User' },
+    });
+    const { orderId } = await orderRes.json();
+    expect(orderRes.status()).toBe(201);
+
+    // Step 4: GET all orders — verify count increased by exactly 1
+    const afterRes   = await request.get(`${API_BASE}/orders`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const afterOrders = await afterRes.json();
+    expect(afterOrders.length).toBe(countBefore + 1);
+
+    // Step 5: verify the new order is in the list using orderId from step 3
+    const found = afterOrders.find((o: { id: string }) => o.id === orderId);
+    expect(found).toBeDefined();
+
+    // Cleanup
+    await request.delete(`${API_BASE}/orders/${orderId}`, { headers: { Authorization: `Bearer ${token}` } });
+  });
+
+  test('TC24 - Add 3 items → extract all itemIds from GET → delete each → verify cart is empty @smoke @api @regression', async ({ request }) => {
+    // Step 1: get 3 available products
+    const listRes  = await request.get(`${API_BASE}/products?available=true&results=3`);
+    const products = await listRes.json();
+    expect(products.length).toBe(3);
+
+    // Step 2: create cart and add all 3 products using IDs from step 1
+    const cartId = await createCart(request);
+    for (const product of products) {
+      await request.post(`${API_BASE}/carts/${cartId}/items`, { data: { productId: product.id } });
+    }
+
+    // Step 3: GET cart items — extract all itemIds from response
+    const itemsRes1 = await request.get(`${API_BASE}/carts/${cartId}/items`);
+    const items1    = await itemsRes1.json();
+    expect(items1.length).toBe(3);
+    const itemIds   = items1.map((i: { id: number }) => i.id);
+
+    // Step 4: delete each item using itemIds extracted in step 3
+    for (const itemId of itemIds) {
+      const delRes = await request.delete(`${API_BASE}/carts/${cartId}/items/${itemId}`);
+      expect(delRes.status()).toBe(204);
+    }
+
+    // Step 5: GET cart items — verify cart is now empty
+    const itemsRes2 = await request.get(`${API_BASE}/carts/${cartId}/items`);
+    const items2    = await itemsRes2.json();
+    expect(items2.length).toBe(0);
+  });
+
+  test('TC25 - Full E2E: search → cart → order → update customerName → verify → delete → confirm 404 @smoke @api @regression', async ({ request }) => {
+    // Step 1: search for an available product
+    const listRes   = await request.get(`${API_BASE}/products?available=true&results=1`);
+    const [product] = await listRes.json();
+    const productId = product.id;
+
+    // Step 2: create cart and add product from step 1
+    const cartId = await createCart(request);
+    await request.post(`${API_BASE}/carts/${cartId}/items`, { data: { productId } });
+
+    // Step 3: verify cart has correct product before ordering
+    const itemsRes = await request.get(`${API_BASE}/carts/${cartId}/items`);
+    const items    = await itemsRes.json();
+    expect(items[0].productId).toBe(productId);
+
+    // Step 4: register API client → extract token
+    const token = await getAccessToken(request);
+
+    // Step 5: create order using cartId from step 2 and token from step 4
+    const orderRes    = await request.post(`${API_BASE}/orders`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data   : { cartId, customerName: 'Original Name' },
+    });
+    const { orderId } = await orderRes.json();
+    expect(orderRes.status()).toBe(201);
+
+    // Step 6: GET order — verify original customerName
+    const getRes1 = await request.get(`${API_BASE}/orders/${orderId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect((await getRes1.json()).customerName).toBe('Original Name');
+
+    // Step 7: PATCH order with new customerName using orderId from step 5
+    const patchRes = await request.patch(`${API_BASE}/orders/${orderId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data   : { customerName: 'Updated Name' },
+    });
+    expect(patchRes.status()).toBe(204);
+
+    // Step 8: GET order again — verify customerName updated
+    const getRes2 = await request.get(`${API_BASE}/orders/${orderId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect((await getRes2.json()).customerName).toBe('Updated Name');
+
+    // Step 9: DELETE order
+    const delRes = await request.delete(`${API_BASE}/orders/${orderId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(delRes.status()).toBe(204);
+
+    // Step 10: GET order — confirm 404 after deletion
+    const confirmRes = await request.get(`${API_BASE}/orders/${orderId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(confirmRes.status()).toBe(404);
   });
 
 });
