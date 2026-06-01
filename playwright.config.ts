@@ -28,17 +28,38 @@ export default defineConfig({
     navigationTimeout: 30000,
   },
   projects: [
+    // ── Desktop ──────────────────────────────────────────────
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      testIgnore: '**/mobile/**/*.spec.ts',
     },
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
+      testIgnore: '**/mobile/**/*.spec.ts',
     },
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
+      testIgnore: '**/mobile/**/*.spec.ts',
+    },
+
+    // ── Mobile ───────────────────────────────────────────────
+    {
+      name: 'iPhone 14',
+      use: { ...devices['iPhone 14'] },
+      testMatch: '**/mobile/**/*.spec.ts',
+    },
+    {
+      name: 'Pixel 7',
+      use: { ...devices['Pixel 7'] },
+      testMatch: '**/mobile/**/*.spec.ts',
+    },
+    {
+      name: 'iPad Pro 11',
+      use: { ...devices['iPad Pro 11'] },
+      testMatch: '**/mobile/**/*.spec.ts',
     },
   ],
 });

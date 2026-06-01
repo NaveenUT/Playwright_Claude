@@ -195,5 +195,13 @@ export const TEST_DATA = {
     password: 'invalid_pass',
   },
   loginErrorMessage: 'Invalid username or password',
+  // Mobile Emulation
+  mobile: {
+    searchTerm: 'gloves',
+    signInDataTestId: 'mega_menu_component_a_23',
+    hamburgerAlt: 'menu',
+    overflowTolerancePx: 1,
+    scrollThreshold: 0.8,
+  },
 };
 
