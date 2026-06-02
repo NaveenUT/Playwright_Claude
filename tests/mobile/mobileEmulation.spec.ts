@@ -1,5 +1,13 @@
 import { test, expect } from '../../fixtures/customFixtures';
+import { HomePage } from '../../pages/HomePage';
 import { TEST_DATA } from '../../test-data/testData';
+
+/**
+ * Mobile tests manually instantiate page objects WITHOUT calling setup()
+ * because the beforeEach handles navigation and overlay dismissal.
+ * Using fixtures directly would call setup() again (re-navigate + domain select),
+ * conflicting with the custom beforeEach.
+ */
 
 const BASE_URL = process.env.BASE_URL ?? 'https://www.henryschein.co.uk';
 
@@ -26,15 +34,6 @@ async function dismissOverlays(page: import('@playwright/test').Page) {
   if (await cookieBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
     await cookieBtn.click();
     await page.waitForTimeout(300);
-  }
-}
-
-/** Clicks the hamburger menu if it is visible (force bypasses residual overlay) */
-async function openMobileMenuIfNeeded(page: import('@playwright/test').Page) {
-  const hamburger = page.locator(`img[alt="${TEST_DATA.mobile.hamburgerAlt}"]`).first();
-  if (await hamburger.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await hamburger.click({ force: true });
-    await page.waitForTimeout(600);
   }
 }
 
@@ -68,18 +67,13 @@ test.describe('Henry Schein - Mobile Emulation & Responsive Tests', () => {
       tag: ['@mobile', '@smoke', '@regression'],
       annotation: { type: 'feature', description: 'Hamburger menu visibility on mobile viewports' },
     },
-    async ({ page, viewport }) => {
-      if (viewport && viewport.width < 768) {
-        await test.step('Verify hamburger toggle is visible on small mobile', async () => {
-          const hamburger = page.locator(`img[alt="${TEST_DATA.mobile.hamburgerAlt}"]`).first();
-          await expect(hamburger).toBeVisible({ timeout: 10000 });
-        });
-      } else {
-        await test.step('Verify nav link is visible on tablet viewport', async () => {
-          const navLink = page.locator('nav a, header a').first();
-          await expect(navLink).toBeVisible({ timeout: 10000 });
-        });
-      }
+    async ({ page }) => {
+      const hp = new HomePage(page);   // no setup() — page already navigated
+
+      await test.step('Verify hamburger menu toggle is visible', async () => {
+        // All 3 emulated devices (iPhone 14, Pixel 7, iPad Pro 11) use the mobile/hamburger nav
+        await expect(hp.hamburgerMenu).toBeVisible({ timeout: 10000 });
+      });
     });
 
   // ── TC03 ────────────────────────────────────────────────────────────────────
@@ -90,17 +84,15 @@ test.describe('Henry Schein - Mobile Emulation & Responsive Tests', () => {
       annotation: { type: 'feature', description: 'Search bar interaction on mobile' },
     },
     async ({ page }) => {
-      const searchInput = page.locator(
-        `input[placeholder="${TEST_DATA.homePage.searchPlaceholder}"], #search-input, [name="q"]`
-      ).first();
+      const hp = new HomePage(page);
 
       await test.step('Verify search input is visible', async () => {
-        await expect(searchInput).toBeVisible({ timeout: 10000 });
+        await expect(hp.searchInput).toBeVisible({ timeout: 10000 });
       });
 
       await test.step('Verify search input accepts text', async () => {
-        await searchInput.fill(TEST_DATA.mobile.searchTerm);
-        await expect(searchInput).toHaveValue(TEST_DATA.mobile.searchTerm);
+        await hp.searchInput.fill(TEST_DATA.mobile.searchTerm);
+        await expect(hp.searchInput).toHaveValue(TEST_DATA.mobile.searchTerm);
       });
     });
 
@@ -112,13 +104,17 @@ test.describe('Henry Schein - Mobile Emulation & Responsive Tests', () => {
       annotation: { type: 'feature', description: 'Sign In link visibility after opening mobile nav' },
     },
     async ({ page }) => {
+      const hp = new HomePage(page);
+
       await test.step('Open hamburger menu if present', async () => {
-        await openMobileMenuIfNeeded(page);
+        if (await hp.hamburgerMenu.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await hp.hamburgerMenu.click({ force: true });
+          await page.waitForTimeout(600);
+        }
       });
 
-      await test.step('Verify Sign In link is visible', async () => {
-        const signIn = page.locator(`[data-test-id="${TEST_DATA.mobile.signInDataTestId}"]`).first();
-        await expect(signIn).toBeVisible({ timeout: 10000 });
+      await test.step('Verify Sign In link is visible in nav', async () => {
+        await expect(hp.mobileSignInLink).toBeVisible({ timeout: 10000 });
       });
     });
 
@@ -130,11 +126,10 @@ test.describe('Henry Schein - Mobile Emulation & Responsive Tests', () => {
       annotation: { type: 'feature', description: 'Cart icon accessibility on mobile header' },
     },
     async ({ page }) => {
+      const hp = new HomePage(page);
+
       await test.step('Verify cart icon is visible without opening menu', async () => {
-        const cartIcon = page.locator(
-          'a[href*="cart"], a[href*="basket"], button[aria-label*="cart" i], [data-test-id*="cart"], [data-test-id*="basket"]'
-        ).first();
-        await expect(cartIcon).toBeVisible({ timeout: 10000 });
+        await expect(hp.cartIcon).toBeVisible({ timeout: 10000 });
       });
     });
 
@@ -146,21 +141,22 @@ test.describe('Henry Schein - Mobile Emulation & Responsive Tests', () => {
       annotation: { type: 'feature', description: 'Login form accessibility on mobile after Sign In click' },
     },
     async ({ page }) => {
+      const hp = new HomePage(page);
+
       await test.step('Open mobile menu if needed', async () => {
-        await openMobileMenuIfNeeded(page);
+        if (await hp.hamburgerMenu.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await hp.hamburgerMenu.click({ force: true });
+          await page.waitForTimeout(600);
+        }
       });
 
       await test.step('Click Sign In to open login panel', async () => {
-        await page.locator(`[data-test-id="${TEST_DATA.mobile.signInDataTestId}"]`).first().click({ force: true });
+        await hp.mobileSignInLink.click({ force: true });
       });
 
       await test.step('Verify username input is visible and within viewport', async () => {
-        const usernameInput = page.locator(
-          '[data-test-id="login.username"], input[name="username"], #username, input[autocomplete="username"]'
-        ).first();
-        await expect(usernameInput).toBeVisible({ timeout: 10000 });
-
-        const box = await usernameInput.boundingBox();
+        await expect(hp.usernameInput).toBeVisible({ timeout: 10000 });
+        const box = await hp.usernameInput.boundingBox();
         expect(box).not.toBeNull();
         expect(box!.x).toBeGreaterThanOrEqual(0);
         expect(box!.width).toBeGreaterThan(0);
@@ -175,15 +171,16 @@ test.describe('Henry Schein - Mobile Emulation & Responsive Tests', () => {
       annotation: { type: 'feature', description: 'No horizontal scroll on mobile — layout integrity check' },
     },
     async ({ page, viewport }) => {
+      const hp = new HomePage(page);
+
       await test.step('Verify page body width does not exceed viewport width', async () => {
         const bodyWidth     = await page.evaluate(() => document.body.scrollWidth);
         const viewportWidth = viewport?.width ?? 390;
         expect(bodyWidth).toBeLessThanOrEqual(viewportWidth + TEST_DATA.mobile.overflowTolerancePx);
       });
 
-      await test.step('Verify at least one hero/content element is visible', async () => {
-        const hero = page.locator('[class*="hero"], [class*="banner"], [class*="carousel"], main, section').first();
-        await expect(hero).toBeVisible({ timeout: 10000 });
+      await test.step('Verify hero banner is visible', async () => {
+        await expect(hp.heroBanner).toBeVisible({ timeout: 10000 });
       });
     });
 
@@ -195,9 +192,10 @@ test.describe('Henry Schein - Mobile Emulation & Responsive Tests', () => {
       annotation: { type: 'feature', description: 'Logo visibility across all mobile device sizes' },
     },
     async ({ page }) => {
+      const hp = new HomePage(page);
+
       await test.step('Verify HS logo is visible in header', async () => {
-        const logo = page.locator('img[alt*="Henry Schein" i], img[src*="henry-schein" i]').first();
-        await expect(logo).toBeVisible({ timeout: 10000 });
+        await expect(hp.logo).toBeVisible({ timeout: 10000 });
       });
     });
 
@@ -234,14 +232,15 @@ test.describe('Henry Schein - Mobile Emulation & Responsive Tests', () => {
       annotation: { type: 'feature', description: 'Full page scroll and footer reachability on mobile' },
     },
     async ({ page }) => {
+      const hp = new HomePage(page);
+
       await test.step('Scroll to bottom of page', async () => {
         await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
         await page.waitForTimeout(500);
       });
 
       await test.step('Verify footer is visible after scrolling', async () => {
-        const footer = page.locator('footer').first();
-        await expect(footer).toBeVisible({ timeout: 10000 });
+        await expect(hp.footer).toBeVisible({ timeout: 10000 });
       });
 
       await test.step('Verify scroll position is near the bottom', async () => {

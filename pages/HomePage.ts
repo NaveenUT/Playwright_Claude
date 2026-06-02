@@ -9,6 +9,11 @@ export class HomePage extends BasePage {
   readonly signUpLink: Locator;
   readonly cartIcon: Locator;
 
+  // Mobile navigation
+  readonly hamburgerMenu: Locator;
+  readonly logo: Locator;
+  readonly mobileSignInLink: Locator;  // Sign In inside expanded mobile nav menu
+
   // Login panel
   readonly usernameInput: Locator;
   readonly passwordInput: Locator;
@@ -126,6 +131,11 @@ export class HomePage extends BasePage {
     this.signUpLink = page.locator('text=Sign Up').first();
     this.cartIcon = page.locator('[data-test-id="cart_image_icon_notloggedin"]');
 
+    // Mobile navigation
+    this.hamburgerMenu = page.locator('img[alt="menu"]').first();
+    this.logo = page.locator('img[alt*="Henry Schein" i], img[src*="henry-schein" i]').first();
+    this.mobileSignInLink = page.locator('[data-test-id="mega_menu_component_a_23"]').first();
+
     // Login panel
     this.usernameInput = page.locator('[data-test-id="login.username"], input[name="username"], #username, input[autocomplete="username"]').first();
     this.passwordInput = page.locator('[data-test-id="login.password"], input[name="password"], #password, input[type="password"]').first();
@@ -220,7 +230,7 @@ export class HomePage extends BasePage {
     this.brandShopNowButtons = page.locator('.brand-container a:has-text("Shop Now"), .our-top-brands a:has-text("Shop Now")');
 
     // Dev-06-Footer Links Implementation
-    this.footer = page.locator('footer.page-footer').first();
+    this.footer = page.locator('footer.page-footer, footer').first();
     this.footerCompanyInfoLink = page.locator('footer a:has-text("Company Info")').first();
     this.footerLegalTermsLink = page.locator('footer a:has-text("Legal Terms")').first();
     this.footerPrivacyNoticeLink = page.locator('footer a:has-text("Privacy Notice")').first();
